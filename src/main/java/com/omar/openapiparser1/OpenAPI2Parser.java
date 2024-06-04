@@ -1,7 +1,6 @@
 package com.omar.openapiparser1;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.ObjectCodec;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -36,7 +35,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class OpenAPI2Parser {
 
     private static Swagger parseed;
-
 
     public static void main(String[] args) throws IOException {
 
@@ -81,8 +79,9 @@ public class OpenAPI2Parser {
                 Request putRequest = getRequestFromOpreation(put, concatUrl, "put");
                 requests.add(putRequest);
             }
-            requests.forEach(e -> System.out.println(e.toString()));
         }
+        requests.forEach(e -> System.out.println(e.toString()));
+
     }
 
     public static Request getRequestFromOpreation(Operation op, String urlString, String verb) throws JsonProcessingException, MalformedURLException {
@@ -92,8 +91,7 @@ public class OpenAPI2Parser {
         String replaceAll = urlString.replaceAll("\\{(.*?)\\}", "");
         UriComponentsBuilder componentsBuilder = UriComponentsBuilder.fromHttpUrl(replaceAll);
         for (Parameter parameter : getParameters) {
-            String in = parameter.getIn();
-            switch (in) {
+            switch (parameter.getIn()) {
                 case "header" -> {
                     HeaderParameter hp = (HeaderParameter) parameter;
                     header.append(hp.getName())
@@ -106,21 +104,19 @@ public class OpenAPI2Parser {
                     BodyParameter bp = (BodyParameter) parameter;
                     RefModel refbody = (RefModel) bp.getSchema();
                     Model body = parseed.getDefinitions().get(refbody.getSimpleRef());
-                    System.out.println("REF:"+refbody.getSimpleRef());
                     ObjectMapper mapper = new ObjectMapper();
                     ObjectNode MappObject = MapObject((Model) body);
                     bodyString = mapper.writeValueAsString(MappObject);
                 }
                 case "query" -> {
                     QueryParameter qp = (QueryParameter) parameter;
-
                     componentsBuilder.queryParam(qp.getName(), qp.getExample() == null ? qp.getType() : qp.getExample().toString());
                 }
                 case "path" -> {
                     PathParameter pp = (PathParameter) parameter;
                     componentsBuilder.path(pp.getType());
                 }
-                
+
             }
         }
         return new Request(bodyString, header.toString(), componentsBuilder.toUriString(), verb);
@@ -128,35 +124,32 @@ public class OpenAPI2Parser {
 
     public static ObjectNode MapObject(Model body) {
         Map<String, Property> properties = body.getProperties();
-        System.out.println("properties body"+body.getReference());
-        System.out.println("properties size"+properties.size());
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode root = mapper.createObjectNode();
         for (Map.Entry<String, Property> entry1 : properties.entrySet()) {
             Property property = entry1.getValue();
-            root= ProcessProperty(property, root);
+            property.setName(entry1.getKey());
+            root = ProcessProperty(property, root);
         }
 
         return root;
     }
 
     public static ObjectNode ProcessProperty(Property property, ObjectNode jacksonNode) {
-        System.err.println("----");
-
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode child = mapper.createObjectNode();
+
         if (!property.getType().equals("ref")) {
             switch (property.getType()) {
                 case "string" -> {
                     StringProperty stringProperty = (StringProperty) property;
                     if (stringProperty.getEnum() != null) {
-                        child.put(property.getName(), stringProperty.getEnum().toString());
+                        child.put(stringProperty.getName(), stringProperty.getEnum().toString());
                     } else if (stringProperty.getExample() != null) {
-                        child.put(property.getName(), stringProperty.getExample().toString());
+                        child.put(stringProperty.getName(), stringProperty.getExample().toString());
                     } else {
-                        child.put(property.getName(), stringProperty.getType());
+                        child.put(stringProperty.getName(), stringProperty.getType());
                     }
-                    System.out.println(child.toString());
                 }
                 case "array" -> {
                     ArrayProperty arrayProperty = (ArrayProperty) property;
@@ -174,27 +167,29 @@ public class OpenAPI2Parser {
                 }
                 case "object" -> {
                     ObjectProperty op = (ObjectProperty) property;
-                    ObjectNode putObject = child.putObject(property.getName());
+                    ObjectNode putObject = child.putObject(op.getName());
                     for (Map.Entry<String, Property> entry : op.getProperties().entrySet()) {
-                        Property Objectproperty = entry.getValue();
-                        ObjectNode Process = ProcessProperty(Objectproperty, putObject);
+                        Property objectProperty = entry.getValue();
+                        objectProperty.setName(entry.getKey());
+                        ObjectNode Process = ProcessProperty(objectProperty, putObject);
                         putObject.setAll(Process);
                     }
-                    child.setAll(putObject);
+
+                    //child.setAll(putObject);
+                    //jacksonNode = jacksonNode.setAll(child);
                 }
                 default ->
-                        child.put(property.getName(), property.getType());
+                    child.put(property.getName(), property.getType());
             }
+            jacksonNode = jacksonNode.setAll(child);
         } else if (property.getType().equals("ref")) {
             RefProperty ref = (RefProperty) property;
             Model innerbody = parseed.getDefinitions().get(ref.getSimpleRef());
-            System.out.println("model inner" + innerbody.getDescription());
-            child = jacksonNode.putObject(property.getName());
+            child = jacksonNode.putObject(ref.getName());
             ObjectNode mappObject = MapObject(innerbody);
             child.setAll(mappObject);
-            jacksonNode.setAll(child);
+            //jacksonNode.setAll(child);
         }
-        System.out.println(jacksonNode.toString());
         return jacksonNode;
     }
 
