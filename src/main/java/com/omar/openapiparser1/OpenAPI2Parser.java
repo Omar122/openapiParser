@@ -21,10 +21,8 @@ import io.swagger.models.properties.StringProperty;
 import io.swagger.parser.Swagger20Parser;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,12 +34,10 @@ public class OpenAPI2Parser {
 
     private static Swagger parseed;
 
-    public static void main(String[] args) throws IOException {
+    public static List<Request> Parse(Path path) throws IOException {
 
         String schemes, host, basrurl;
-        Path path = Paths.get("src\\main\\resources").toAbsolutePath();
-        List<Path> list = Files.list(path).toList();
-        BufferedReader reader = Files.newBufferedReader(list.get(0));
+        BufferedReader reader = Files.newBufferedReader(path);
         Stream<String> line = reader.lines();
         String yaml = line.collect(Collectors.joining("\n"));
         Swagger20Parser parser = new Swagger20Parser();
@@ -80,11 +76,11 @@ public class OpenAPI2Parser {
                 requests.add(putRequest);
             }
         }
-        requests.forEach(e -> System.out.println(e.toString()));
 
+        return requests;
     }
 
-    public static Request getRequestFromOpreation(Operation op, String urlString, String verb) throws JsonProcessingException, MalformedURLException {
+    public static Request getRequestFromOpreation(Operation op, String urlString, String verb) throws JsonProcessingException {
         List<Parameter> getParameters = op.getParameters();
         String bodyString = null;
         StringBuilder header = new StringBuilder();
@@ -174,9 +170,6 @@ public class OpenAPI2Parser {
                         ObjectNode Process = ProcessProperty(objectProperty, putObject);
                         putObject.setAll(Process);
                     }
-
-                    //child.setAll(putObject);
-                    //jacksonNode = jacksonNode.setAll(child);
                 }
                 default ->
                     child.put(property.getName(), property.getType());
@@ -188,7 +181,6 @@ public class OpenAPI2Parser {
             child = jacksonNode.putObject(ref.getName());
             ObjectNode mappObject = MapObject(innerbody);
             child.setAll(mappObject);
-            //jacksonNode.setAll(child);
         }
         return jacksonNode;
     }

@@ -1,7 +1,6 @@
 package com.omar.openapiparser1;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -24,24 +23,18 @@ import io.swagger.v3.oas.models.parameters.QueryParameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.parser.core.models.SwaggerParseResult;
 import java.io.File;
-import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.util.UriComponentsBuilder;
 
-/**
- *
- * @author oalfuraydi
- */
 public class OpenAPIParser3 {
 
     private static OpenAPI openAPI;
 
-    public static void main(String[] args) throws JsonProcessingException, IOException {
+    public static List<Request> Parse(File filepath){
         String basrurl;
-        File filepath = java.nio.file.Paths.get("src\\main\\resources\\OpenAPI3Simple.yaml").toFile();
+        //File filepath = java.nio.file.Paths.get("src\\main\\resources\\OpenAPI3Simple.yaml").toFile();
         SwaggerParseResult result = new OpenAPIParser().readLocation(filepath.toString(), null, null);
         openAPI = result.getOpenAPI();
         Paths paths = openAPI.getPaths();
@@ -73,17 +66,15 @@ public class OpenAPIParser3 {
                 Request putRequest = getRequestFromOpreation(put, pathUrl, "put");
                 requests.add(putRequest);
             }
-
         }
-        requests.forEach(e -> System.out.println(e.toString()));
+
+        return requests;
     }
 
     public static Request getRequestFromOpreation(Operation op, String basrurl, String verb) {
-        //System.out.println(op.getRequestBody() != null ? op.getRequestBody().toString() : "");
         String requestBodyString = "";
         StringBuilder header = new StringBuilder();
         UriComponentsBuilder componentsBuilder = UriComponentsBuilder.fromHttpUrl(basrurl);
-
         if (op.getRequestBody() != null) {
             RequestBody requestBody = op.getRequestBody();
             Content content = requestBody.getContent();
@@ -104,7 +95,6 @@ public class OpenAPIParser3 {
                             .append(",")
                             .append("\n");
                     }
-
                     case "query" -> {
                         QueryParameter qp = (QueryParameter) parameter;
                         componentsBuilder.queryParam(qp.getName(), qp.getExample() == null ? qp.getSchema().getType() : qp.getExample().toString());
@@ -156,7 +146,6 @@ public class OpenAPIParser3 {
                     } else {
                         child.put(stringProperty.getName(), stringProperty.getType());
                     }
-
                 }
                 case "array" -> {
                     ArraySchema arrayProperty = (ArraySchema) property;
@@ -183,8 +172,6 @@ public class OpenAPIParser3 {
                         ObjectNode Process = ProcessProperty(objectProperty, putObject);
                         putObject.setAll(Process);
                     }
-                    //child.setAll(putObject);
-                    //jacksonNode = jacksonNode.setAll(child);
                 }
                 default -> {
                     child.put(property.getName(), property.getType());
@@ -194,11 +181,9 @@ public class OpenAPIParser3 {
         } else if (property.getType().equals("ref")) {
             String[] refs = property.get$ref().split("/");
             Schema innerSchema = openAPI.getComponents().getSchemas().get(refs[refs.length - 1]);
-            // Model innerbody = parseed.getDefinitions().get(ref.getSimpleRef());
             child = root.putObject(property.getName());
             ObjectNode mappObject = MapObject(innerSchema);
             child.setAll(mappObject);
-            //jacksonNode.setAll(child);
         }
         return root;
     }
